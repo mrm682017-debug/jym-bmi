@@ -1,100 +1,143 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 
-# 1. Page Config (Sirf aik baar top par)
-st.set_page_config(page_title="Ultimate Health Suite", page_icon="🛡️", layout="wide")
+# Page Configuration
+st.set_page_config(page_title="Pro Gym Dictionary", page_icon="🏋️‍♂️", layout="wide")
 
-# 2. Session State Initialization
-if 'total_calories' not in st.session_state:
-    st.session_state.total_calories = 0
-    st.session_state.total_protein = 0
-    st.session_state.water_glasses = 0
-    st.session_state.history = []
+# Custom CSS for App-like Card Layout
+st.markdown("""
+    <style>
+    .exercise-card {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 25px;
+        text-align: center;
+        border: 1px solid #eee;
+    }
+    .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; background-color: #007bff; color: white; }
+    h1, h2 { color: #1f1f1f; }
+    </style>
+    """, unsafe_allow_html=True)
 
-st.title("🛡️ Ultimate Health & Fitness Suite")
-st.markdown("Aapka personal assistant jo BMI, Gym Fee aur Workout sab manage karega.")
+# --- SIDEBAR DASHBOARD ---
+st.sidebar.title("📑 GYM DASHBOARD")
+menu = st.sidebar.radio("Main Menu", ["Lec 1: Fitness Tools", "Lec 2: Gym Manager", "📚 Full Exercise Dictionary"])
 
-# 3. Sidebar for User Data
-st.sidebar.header("👤 Your Profile")
-age = st.sidebar.number_input("Age:", value=25)
-gender = st.sidebar.radio("Gender:", ["Male", "Female"])
-weight = st.sidebar.number_input("Weight (kg):", value=70.0)
-height = st.sidebar.number_input("Height (cm):", value=170.0)
-goal = st.sidebar.selectbox("Goal:", ["Lose Weight", "Gain Muscle", "Maintain"])
+# --- SECTION 1: LEC 1 (HEALTH TOOLS) ---
+if menu == "Lec 1: Fitness Tools":
+    st.title("📊 Health Tools")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+        st.subheader("BMI Calculator")
+        w = st.number_input("Weight (kg)", value=70.0)
+        h = st.number_input("Height (cm)", value=170.0)
+        if st.button("Calculate BMI"):
+            bmi = w / ((h/100)**2)
+            st.metric("Score", f"{bmi:.1f}")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+        st.subheader("Water Intake")
+        if 'water' not in st.session_state: st.session_state.water = 0
+        if st.button("Add Glass"): st.session_state.water += 1
+        st.progress(min(st.session_state.water/10, 1.0))
+        st.write(f"Logged: {st.session_state.water} / 10")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TABS SYSTEM ---
-tab1, tab2, tab3 = st.tabs(["📊 Lec 1: BMI & Diet", "🏋️ Lec 2: Gym Dashboard", "🏃 Lec 3: Workout Plans"])
+# --- SECTION 2: LEC 2 (GYM MANAGER) ---
+elif menu == "Lec 2: Gym Manager":
+    st.title("💳 Management")
+    st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+    st.subheader("Member Status")
+    f_status = st.selectbox("Fee Status", ["Paid", "Pending"])
+    if f_status == "Paid": st.success("Membership Active")
+    else: st.error("Membership Expired")
+    att = st.multiselect("Attendance Tracker", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 1: LEC 1 (BMI & DIET) ---
-with tab1:
-    st.header("Body Composition & Diet")
-    bmi = weight / ((height/100) ** 2)
+# --- SECTION 3: FULL EXERCISE DICTIONARY (IMAGE CARDS) ---
+elif menu == "📚 Full Exercise Dictionary":
+    st.title("📖 Complete Gym Exercise Dictionary")
+    muscle = st.selectbox("Select Muscle Group", ["Chest", "Back", "Shoulders", "Legs", "Arms (Biceps/Triceps)", "Abs & Core"])
     
-    if gender == "Male": bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
-    else: bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("Your BMI", f"{bmi:.2f}")
-        if bmi < 18.5: st.warning("Underweight")
-        elif 18.5 <= bmi < 25: st.success("Normal Weight")
-        else: st.error("Overweight")
-        
-    with c2:
-        st.metric("Your BMR", f"{int(bmr)} kcal")
+    col1, col2 = st.columns(2)
 
-    st.divider()
-    st.subheader("💧 Water & 🍱 Food Log")
-    col_w, col_f = st.columns(2)
-    with col_w:
-        if st.button("🥤 Add Water Glass"):
-            st.session_state.water_glasses += 1
-        st.write(f"Glasses: {st.session_state.water_glasses} / 10")
-        st.progress(min(st.session_state.water_glasses / 10, 1.0))
-    
-    with col_f:
-        food_db = {"Roti": 120, "Rice": 200, "Chicken": 239, "Egg": 78, "Dal": 180}
-        item = st.selectbox("Select Food:", list(food_db.keys()))
-        if st.button("Add to Diary"):
-            st.session_state.total_calories += food_db[item]
-            st.success(f"{item} added!")
-        st.metric("Total Calories", f"{st.session_state.total_calories} kcal")
+    if muscle == "Chest":
+        with col1:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/360/Male/l/360_1.jpg")
+            st.subheader("Bench Press")
+            st.write("Target: Chest Mass. Proper form: Lower bar to mid-chest.")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/380/Male/l/380_1.jpg")
+            st.subheader("Dumbbell Flys")
+            st.write("Target: Chest Stretch. Keep elbows slightly bent.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 2: LEC 2 (GYM DASHBOARD) ---
-with tab2:
-    st.header("🏋️ Gym Management Dashboard")
-    st.subheader("💰 Gym Fee Status")
-    col_fee1, col_fee2 = st.columns(2)
-    with col_fee1:
-        fee_date = st.date_input("Last Fee Paid Date", datetime.now())
-    with col_fee2:
-        status = st.selectbox("Payment Status", ["Paid", "Pending"])
-    
-    if status == "Paid": st.success(f"Fees clear! Paid on: {fee_date}")
-    else: st.error("Please clear your dues.")
+    elif muscle == "Back":
+        with col1:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/10/Male/l/10_1.jpg")
+            st.subheader("Lat Pulldowns")
+            st.write("Target: Back Width. Pull down to upper chest.")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/28/Male/l/28_1.jpg")
+            st.subheader("Seated Cable Rows")
+            st.write("Target: Back Thickness. Squeeze shoulder blades.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    st.divider()
-    st.subheader("📅 Gym Attendance")
-    attendance = st.multiselect("Days present this week:", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-    st.info(f"Attendance: {len(attendance)} days.")
+    elif muscle == "Shoulders":
+        with col1:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/48/Male/l/48_1.jpg")
+            st.subheader("Shoulder Press")
+            st.write("Target: Overall Shoulder. Keep core tight.")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/373/Male/l/373_1.jpg")
+            st.subheader("Lateral Raises")
+            st.write("Target: Side Shoulder. Don't swing the weights.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 3: LEC 3 (WORKOUT PLANS) ---
-with tab3:
-    st.header("Exercise Suggestions")
-    if goal == "Lose Weight":
-        st.info("🔥 Cardio focus")
-        st.write("- 30 mins Running")
-    elif goal == "Gain Muscle":
-        st.info("💪 Strength focus")
-        st.write("- Pushups & Squats")
-    else:
-        st.info("🧘 Flexibility focus")
-        st.write("- Yoga & Walking")
+    elif muscle == "Arms (Biceps/Triceps)":
+        with col1:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/138/Male/l/138_1.jpg")
+            st.subheader("Bicep Curls")
+            st.write("Target: Biceps. Full range of motion.")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/345/Male/l/345_1.jpg")
+            st.subheader("Triceps Pushdown")
+            st.write("Target: Triceps. Keep elbows tucked in.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# --- RESET BUTTON ---
-if st.sidebar.button("Reset Daily Progress", type="primary"):
-    st.session_state.total_calories = 0
-    st.session_state.water_glasses = 0
-    st.session_state.history = []
-    st.rerun()
+    elif muscle == "Legs":
+        with col1:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/43/Male/l/43_1.jpg")
+            st.subheader("Barbell Squats")
+            st.write("Target: Quads & Glutes. The king of leg exercises.")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/53/Male/l/53_1.jpg")
+            st.subheader("Leg Press")
+            st.write("Target: Legs. Control the weight on the way down.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    elif muscle == "Abs & Core":
+        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+        st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/148/Male/l/148_1.jpg")
+        st.subheader("Crunches")
+        st.write("Target: Abs. Squeeze your core on every rep.")
+        st.markdown('</div>', unsafe_allow_html=True)
