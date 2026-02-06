@@ -1,10 +1,19 @@
 import streamlit as st
+import plotly.graph_objects as go
+import pandas as pd
 from datetime import datetime
+import time
 
-# Page Configuration
-st.set_page_config(page_title="Pro Gym Dictionary", page_icon="🏋️‍♂️", layout="wide")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="Pro Gym Suite", page_icon="🏋️‍♂️", layout="wide")
 
-# Custom CSS for App-like Card Layout
+# Session State for Data (Records ko save rakhne ke liye)
+if 'gym_members' not in st.session_state:
+    st.session_state.gym_members = []
+if 'water' not in st.session_state:
+    st.session_state.water = 0
+
+# --- CUSTOM CSS ---
 st.markdown("""
     <style>
     .exercise-card {
@@ -17,127 +26,118 @@ st.markdown("""
         border: 1px solid #eee;
     }
     .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; background-color: #007bff; color: white; }
-    h1, h2 { color: #1f1f1f; }
+    img { border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- SIDEBAR DASHBOARD ---
 st.sidebar.title("📑 GYM DASHBOARD")
-menu = st.sidebar.radio("Main Menu", ["Lec 1: Fitness Tools", "Lec 2: Gym Manager", "📚 Full Exercise Dictionary"])
+menu = st.sidebar.radio("Main Menu", ["Lec 1: Fitness Tools", "Lec 2: Gym Manager (Admin)", "📚 Full Exercise Dictionary"])
 
-# --- SECTION 1: LEC 1 (HEALTH TOOLS) ---
+# --- SECTION 1: LEC 1 (HEALTH TOOLS & VISUAL BMI) ---
 if menu == "Lec 1: Fitness Tools":
     st.title("📊 Health Tools")
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1.5])
+    
     with col1:
         st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
         st.subheader("BMI Calculator")
         w = st.number_input("Weight (kg)", value=70.0)
         h = st.number_input("Height (cm)", value=170.0)
-        if st.button("Calculate BMI"):
-            bmi = w / ((h/100)**2)
-            st.metric("Score", f"{bmi:.1f}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
+        calc_bmi = st.button("Calculate BMI")
+        
+        st.divider()
         st.subheader("Water Intake")
-        if 'water' not in st.session_state: st.session_state.water = 0
-        if st.button("Add Glass"): st.session_state.water += 1
+        if st.button("Add Glass 🥛"): st.session_state.water += 1
         st.progress(min(st.session_state.water/10, 1.0))
-        st.write(f"Logged: {st.session_state.water} / 10")
+        st.write(f"Logged: {st.session_state.water} / 10 Glasses")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SECTION 2: LEC 2 (GYM MANAGER) ---
-elif menu == "Lec 2: Gym Manager":
-    st.title("💳 Management")
-    st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-    st.subheader("Member Status")
-    f_status = st.selectbox("Fee Status", ["Paid", "Pending"])
-    if f_status == "Paid": st.success("Membership Active")
-    else: st.error("Membership Expired")
-    att = st.multiselect("Attendance Tracker", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        if calc_bmi:
+            bmi = w / ((h/100)**2)
+            # Visual Gauge Meter (Jo aapne manga tha)
+            fig = go.Figure(go.Indicator(
+                mode = "gauge+number", value = bmi,
+                title = {'text': f"BMI Score: {bmi:.1f}"},
+                gauge = {
+                    'axis': {'range': [15, 40]},
+                    'bar': {'color': "black"},
+                    'steps': [
+                        {'range': [15, 18.5], 'color': "#FFCC00"}, 
+                        {'range': [18.5, 25], 'color': "#008000"}, 
+                        {'range': [25, 30], 'color': "#FFFF00"},   
+                        {'range': [30, 40], 'color': "#FF0000"}    
+                    ]}))
+            st.plotly_chart(fig, use_container_width=True)
 
-# --- SECTION 3: FULL EXERCISE DICTIONARY (IMAGE CARDS) ---
+# --- SECTION 2: LEC 2 (GYM MANAGER - ADMIN PANEL) ---
+elif menu == "Lec 2: Gym Manager (Admin)":
+    st.title("👥 Gym Management (Admin)")
+    st.write("Record members' fee and workout status (Monday to Sunday).")
+
+    with st.expander("➕ Add Member Record (Fee & Day)", expanded=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            m_name = st.text_input("Member Name:")
+            m_fee = st.selectbox("Fee Status", ["Paid ✅", "Pending ❌"])
+        with c2:
+            m_day = st.selectbox("Select Day", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+            
+            # Sunday Off Logic
+            if m_day == "Sunday":
+                st.warning("Sunday is Gym OFF Day! 😴")
+                m_workout = "OFF"
+            else:
+                m_workout = st.radio("Workout Activity:", ["Touched/Done 💪", "Absent ❌"], horizontal=True)
+
+        if st.button("Save Record"):
+            if m_name:
+                st.session_state.gym_members.append({
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Name": m_name, "Fee": m_fee, "Day": m_day, "Status": m_workout
+                })
+                st.success(f"{m_name} ka record update ho gaya!")
+            else:
+                st.error("Please enter a name.")
+
+    if st.session_state.gym_members:
+        st.subheader("📋 Gym Ledger / Fee List")
+        df = pd.DataFrame(st.session_state.gym_members)
+        st.table(df) # Table showing all added members
+        if st.button("Clear All Data"):
+            st.session_state.gym_members = []
+            st.rerun()
+
+# --- SECTION 3: FULL EXERCISE DICTIONARY ---
 elif menu == "📚 Full Exercise Dictionary":
     st.title("📖 Complete Gym Exercise Dictionary")
-    muscle = st.selectbox("Select Muscle Group", ["Chest", "Back", "Shoulders", "Legs", "Arms (Biceps/Triceps)", "Abs & Core"])
+    muscle = st.selectbox("Select Muscle Group", ["Chest", "Back", "Shoulders", "Legs", "Arms", "Abs & Core"])
     
-    col1, col2 = st.columns(2)
+    col_a, col_b = st.columns(2)
 
     if muscle == "Chest":
-        with col1:
+        with col_a:
             st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/360/Male/l/360_1.jpg")
+            st.image("https://upload.wikimedia.org/wikipedia/commons/b/b3/Bench_press_starting_position.png")
             st.subheader("Bench Press")
-            st.write("Target: Chest Mass. Proper form: Lower bar to mid-chest.")
+            st.write("Proper form: Lower bar to mid-chest. Focus on power.")
             st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
+        with col_b:
             st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/380/Male/l/380_1.jpg")
+            st.image("https://upload.wikimedia.org/wikipedia/commons/e/e4/Dumbbell_Fly.png")
             st.subheader("Dumbbell Flys")
-            st.write("Target: Chest Stretch. Keep elbows slightly bent.")
+            st.write("Focus on the stretch at the bottom.")
             st.markdown('</div>', unsafe_allow_html=True)
 
     elif muscle == "Back":
-        with col1:
+        with col_a:
             st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/10/Male/l/10_1.jpg")
-            st.subheader("Lat Pulldowns")
-            st.write("Target: Back Width. Pull down to upper chest.")
+            st.image("https://upload.wikimedia.org/wikipedia/commons/d/d7/Lat_pulldown_machine_01.jpg")
+            st.subheader("Lat Pulldown")
             st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
+        with col_b:
             st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/28/Male/l/28_1.jpg")
-            st.subheader("Seated Cable Rows")
-            st.write("Target: Back Thickness. Squeeze shoulder blades.")
+            st.image("https://upload.wikimedia.org/wikipedia/commons/b/b2/Cable_Row.png")
+            st.subheader("Seated Row")
             st.markdown('</div>', unsafe_allow_html=True)
-
-    elif muscle == "Shoulders":
-        with col1:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/48/Male/l/48_1.jpg")
-            st.subheader("Shoulder Press")
-            st.write("Target: Overall Shoulder. Keep core tight.")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/373/Male/l/373_1.jpg")
-            st.subheader("Lateral Raises")
-            st.write("Target: Side Shoulder. Don't swing the weights.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    elif muscle == "Arms (Biceps/Triceps)":
-        with col1:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/138/Male/l/138_1.jpg")
-            st.subheader("Bicep Curls")
-            st.write("Target: Biceps. Full range of motion.")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/345/Male/l/345_1.jpg")
-            st.subheader("Triceps Pushdown")
-            st.write("Target: Triceps. Keep elbows tucked in.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    elif muscle == "Legs":
-        with col1:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/43/Male/l/43_1.jpg")
-            st.subheader("Barbell Squats")
-            st.write("Target: Quads & Glutes. The king of leg exercises.")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/53/Male/l/53_1.jpg")
-            st.subheader("Leg Press")
-            st.write("Target: Legs. Control the weight on the way down.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    elif muscle == "Abs & Core":
-        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-        st.image("https://www.bodybuilding.com/exercises/exerciseImages/sequences/148/Male/l/148_1.jpg")
-        st.subheader("Crunches")
-        st.write("Target: Abs. Squeeze your core on every rep.")
-        st.markdown('</div>', unsafe_allow_html=True)
