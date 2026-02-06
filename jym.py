@@ -1,143 +1,108 @@
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
-from datetime import datetime
-import time
+from datetime import datetime, timedelta
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Pro Gym Suite", page_icon="🏋️‍♂️", layout="wide")
+# Page Config
+st.set_page_config(page_title="Elite Gym Library", page_icon="💪", layout="wide")
 
-# Session State for Data (Records ko save rakhne ke liye)
+# Session State for Admin
 if 'gym_members' not in st.session_state:
     st.session_state.gym_members = []
-if 'water' not in st.session_state:
-    st.session_state.water = 0
 
-# --- CUSTOM CSS ---
-st.markdown("""
-    <style>
-    .exercise-card {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
-        margin-bottom: 25px;
-        text-align: center;
-        border: 1px solid #eee;
-    }
-    .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; background-color: #007bff; color: white; }
-    img { border-radius: 12px; margin-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- SIDEBAR ---
+menu = st.sidebar.radio("Main Menu", ["📊 Fitness Tools", "👥 Admin Manager", "📚 Full Exercise Dictionary"])
 
-# --- SIDEBAR DASHBOARD ---
-st.sidebar.title("📑 GYM DASHBOARD")
-menu = st.sidebar.radio("Main Menu", ["Lec 1: Fitness Tools", "Lec 2: Gym Manager (Admin)", "📚 Full Exercise Dictionary"])
+# --- SECTION 1: TOOLS ---
+if menu == "📊 Fitness Tools":
+    st.title("⚖️ BMI & Health")
+    w = st.number_input("Weight (kg)", 40.0, 200.0, 70.0)
+    h = st.number_input("Height (cm)", 100.0, 250.0, 170.0)
+    if st.button("Calculate"):
+        bmi = w / ((h/100)**2)
+        st.metric("BMI", f"{bmi:.1f}")
 
-# --- SECTION 1: LEC 1 (HEALTH TOOLS & VISUAL BMI) ---
-if menu == "Lec 1: Fitness Tools":
-    st.title("📊 Health Tools")
-    col1, col2 = st.columns([1, 1.5])
+# --- SECTION 2: ADMIN MANAGER (WITH FEE DAYS LEFT) ---
+elif menu == "👥 Admin Manager":
+    st.title("👥 Member Ledger & Fee Tracker")
     
-    with col1:
-        st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-        st.subheader("BMI Calculator")
-        w = st.number_input("Weight (kg)", value=70.0)
-        h = st.number_input("Height (cm)", value=170.0)
-        calc_bmi = st.button("Calculate BMI")
+    with st.form("admin"):
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Member Name")
+            fee = st.selectbox("Fee Status", ["Paid ✅", "Pending ❌"])
+        with col2:
+            # Fee jis din jama ki
+            pay_date = st.date_input("Fee Payment Date", datetime.now())
+            day = st.selectbox("Today's Day", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
         
-        st.divider()
-        st.subheader("Water Intake")
-        if st.button("Add Glass 🥛"): st.session_state.water += 1
-        st.progress(min(st.session_state.water/10, 1.0))
-        st.write(f"Logged: {st.session_state.water} / 10 Glasses")
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.form_submit_button("Save Member Record"):
+            # Expiry date calculate ho rahi hai (30 din baad)
+            expiry_date = pay_date + timedelta(days=30)
+            st.session_state.gym_members.append({
+                "Name": name,
+                "Fee Status": fee,
+                "Paid On": pay_date,
+                "Expires On": expiry_date,
+                "Day": day
+            })
+            st.success(f"{name} ka record save ho gaya!")
 
-    with col2:
-        if calc_bmi:
-            bmi = w / ((h/100)**2)
-            # Visual Gauge Meter (Jo aapne manga tha)
-            fig = go.Figure(go.Indicator(
-                mode = "gauge+number", value = bmi,
-                title = {'text': f"BMI Score: {bmi:.1f}"},
-                gauge = {
-                    'axis': {'range': [15, 40]},
-                    'bar': {'color': "black"},
-                    'steps': [
-                        {'range': [15, 18.5], 'color': "#FFCC00"}, 
-                        {'range': [18.5, 25], 'color': "#008000"}, 
-                        {'range': [25, 30], 'color': "#FFFF00"},   
-                        {'range': [30, 40], 'color': "#FF0000"}    
-                    ]}))
-            st.plotly_chart(fig, use_container_width=True)
-
-# --- SECTION 2: LEC 2 (GYM MANAGER - ADMIN PANEL) ---
-elif menu == "Lec 2: Gym Manager (Admin)":
-    st.title("👥 Gym Management (Admin)")
-    st.write("Record members' fee and workout status (Monday to Sunday).")
-
-    with st.expander("➕ Add Member Record (Fee & Day)", expanded=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            m_name = st.text_input("Member Name:")
-            m_fee = st.selectbox("Fee Status", ["Paid ✅", "Pending ❌"])
-        with c2:
-            m_day = st.selectbox("Select Day", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
-            
-            # Sunday Off Logic
-            if m_day == "Sunday":
-                st.warning("Sunday is Gym OFF Day! 😴")
-                m_workout = "OFF"
-            else:
-                m_workout = st.radio("Workout Activity:", ["Touched/Done 💪", "Absent ❌"], horizontal=True)
-
-        if st.button("Save Record"):
-            if m_name:
-                st.session_state.gym_members.append({
-                    "Date": datetime.now().strftime("%Y-%m-%d"),
-                    "Name": m_name, "Fee": m_fee, "Day": m_day, "Status": m_workout
-                })
-                st.success(f"{m_name} ka record update ho gaya!")
-            else:
-                st.error("Please enter a name.")
-
+    # Table Display logic
     if st.session_state.gym_members:
-        st.subheader("📋 Gym Ledger / Fee List")
-        df = pd.DataFrame(st.session_state.gym_members)
-        st.table(df) # Table showing all added members
-        if st.button("Clear All Data"):
-            st.session_state.gym_members = []
-            st.rerun()
+        st.subheader("📋 Active Members Status")
+        
+        display_data = []
+        today = datetime.now().date()
 
-# --- SECTION 3: FULL EXERCISE DICTIONARY ---
+        for member in st.session_state.gym_members:
+            # Din baaki calculate karna
+            days_left = (member["Expires On"] - today).days
+            
+            status_msg = ""
+            if days_left > 0:
+                status_msg = f"{days_left} Din Baaki Hain"
+            elif days_left == 0:
+                status_msg = "Aaj Last Day Hai! ⚠️"
+            else:
+                status_msg = f"Expired ({abs(days_left)} din pehle) ❌"
+
+            display_data.append({
+                "Member Name": member["Name"],
+                "Fee Status": member["Fee Status"],
+                "Paid Date": member["Paid On"],
+                "Expiry Date": member["Expires On"],
+                "Remaining Time": status_msg
+            })
+
+        df = pd.DataFrame(display_data)
+        st.dataframe(df, use_container_width=True)
+
+# --- SECTION 3: EXERCISE DICTIONARY (Chest focus) ---
 elif menu == "📚 Full Exercise Dictionary":
-    st.title("📖 Complete Gym Exercise Dictionary")
-    muscle = st.selectbox("Select Muscle Group", ["Chest", "Back", "Shoulders", "Legs", "Arms", "Abs & Core"])
+    st.title("📖 Complete Exercise Library")
     
-    col_a, col_b = st.columns(2)
+    exercises_data = {
+        "Chest (Hekal)": [
+            {"name": "Flat Bench Press", "desc": "Overall chest mass."},
+            {"name": "Incline Barbell Press", "desc": "Upper chest focus."},
+            {"name": "Decline Barbell Press", "desc": "Lower chest focus."},
+            {"name": "Dumbbell Flys", "desc": "Chest stretch and width."},
+            {"name": "Cable Crossovers", "desc": "Inner chest definition."},
+            {"name": "Chest Dips", "desc": "Lower chest power."},
+            {"name": "Machine Press", "desc": "Targeted squeeze."},
+            {"name": "Push-Ups", "desc": "Bodyweight power."}
+        ],
+        "Back": [{"name": "Lat Pulldown", "desc": "Width."}, {"name": "Seated Rows", "desc": "Thickness."}],
+        "Arms": [{"name": "Bicep Curls", "desc": "Size."}, {"name": "Tricep Pushdown", "desc": "Shape."}]
+    }
 
-    if muscle == "Chest":
-        with col_a:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://upload.wikimedia.org/wikipedia/commons/b/b3/Bench_press_starting_position.png")
-            st.subheader("Bench Press")
-            st.write("Proper form: Lower bar to mid-chest. Focus on power.")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://upload.wikimedia.org/wikipedia/commons/e/e4/Dumbbell_Fly.png")
-            st.subheader("Dumbbell Flys")
-            st.write("Focus on the stretch at the bottom.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    elif muscle == "Back":
-        with col_a:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://upload.wikimedia.org/wikipedia/commons/d/d7/Lat_pulldown_machine_01.jpg")
-            st.subheader("Lat Pulldown")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="exercise-card">', unsafe_allow_html=True)
-            st.image("https://upload.wikimedia.org/wikipedia/commons/b/b2/Cable_Row.png")
-            st.subheader("Seated Row")
-            st.markdown('</div>', unsafe_allow_html=True)
+    selected_muscle = st.selectbox("Choose Muscle Group", list(exercises_data.keys()))
+    ex_list = exercises_data[selected_muscle]
+    
+    for i in range(0, len(ex_list), 2):
+        cols = st.columns(2)
+        for j in range(2):
+            if i + j < len(ex_list):
+                with cols[j]:
+                    st.info(f"**{ex_list[i+j]['name']}**\n\n{ex_list[i+j]['desc']}")
